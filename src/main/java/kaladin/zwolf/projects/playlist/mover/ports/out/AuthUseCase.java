@@ -4,4 +4,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface AuthUseCase {
     ResponseEntity<?> getToken(String code);
+
+    ResponseEntity<?> getClientCredentialsToken();
 }
