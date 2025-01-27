@@ -8,11 +8,8 @@ import kaladin.zwolf.projects.playlist.mover.service.SpotifyTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,12 +42,10 @@ public class RequestController {
     public List<String> getPlaylist(@PathVariable String id) {
         try {
             Map<String, Set<String>> size =  playlistAggregationService.getPaginatedPlaylistData(id);
-            List<String> ids = spotifyApiService.idk(size);
-            return ids;
+            return spotifyApiService.searchTracks(size);
         } catch (Exception e) {
             logger.error("Exception while fetching Youtube API: {}", e.getMessage());
         }
-
         return new ArrayList<>();
     }
 
@@ -63,22 +58,10 @@ public class RequestController {
         logger.info("scopes: {}", e.getScope());
     }
 
-    @GetMapping("/test")
-    public void getSpotifySong(@RequestParam("artist") String artist, @RequestParam("track") String track) throws URISyntaxException {
-        var e = spotifyApiService.searchSongByArtistAndName(artist, track);
-        logger.info("RES: {}", e);
-    }
-
     @PostMapping(value = "/playlist", consumes = "application/json")
     public String createPlaylist(@RequestBody PlaylistCreationRequest body) throws JsonProcessingException {
         var id = spotifyApiService.createNewPlaylist(token, body);
         var res = spotifyApiService.addItemsToPlaylist(token, id, body);
         return id;
-    }
-
-    @PostMapping(value = "/quack", consumes = "application/json")
-    public PlaylistCreationRequest d(@RequestBody PlaylistCreationRequest ii) {
-        logger.info("YAYAYA {}", ii);
-        return ii;
     }
 }

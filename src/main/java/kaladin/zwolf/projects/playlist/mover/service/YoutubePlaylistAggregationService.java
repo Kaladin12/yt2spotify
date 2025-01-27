@@ -5,6 +5,7 @@ import kaladin.zwolf.projects.playlist.mover.domain.youtube.YoutubePlaylist;
 import kaladin.zwolf.projects.playlist.mover.domain.youtube.YoutubePlaylistItem;
 import kaladin.zwolf.projects.playlist.mover.ports.out.PlaylistAggregationUseCase;
 import kaladin.zwolf.projects.playlist.mover.ports.out.SourcePlaylistUseCase;
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -44,27 +45,6 @@ public class YoutubePlaylistAggregationService implements PlaylistAggregationUse
         return map;
     }
 
-    private Map<String, Set<String>> removeTrailingData(List<YoutubePlaylistItem> items) {
-        Set<String> blackList = Set.of("(official", "(video", "(audio", "[official", "(lyric", "[unofficial", "- official", " official video");
-        var titles = items.stream()
-                .map(youtubePlaylistItem -> youtubePlaylistItem.getSnippet().getTitle())
-                .map(String::toLowerCase)
-                .map(title -> {
-                    int index = Math.max(-1, Collections.max(blackList.stream().map(title::indexOf).toList()));
-                    return title.substring(0, index == -1 ? title.length() : index );
-                })
-                .map(title -> title.split("[\\-|\\—]"));
-        return titles.filter(title -> title.length == 2)
-                .map(songData -> {
-                    return List.of(songData[0], songData[1].split("ft")[0]);
-                })
-                .collect(Collectors.groupingBy(
-                p -> p.getFirst().strip(),
-                Collectors.mapping(p -> p.get(1).strip(), Collectors.toSet())
-        ));
-//        return titles.filter(title -> title.length < 2).map(title -> )
-    }
-
     private void processAndStorePlaylistData(YoutubePlaylist ytPlaylist, Map<String, Set<String>> map) {
         logger.info("Batch size: {}", ytPlaylist.getItems().size());
         removeTrailingData(ytPlaylist.getItems()).forEach((artist, title) -> {
@@ -77,10 +57,46 @@ public class YoutubePlaylistAggregationService implements PlaylistAggregationUse
         });
     }
 
+    private Map<String, Set<String>> removeTrailingData(List<YoutubePlaylistItem> items) {
+        Set<String> blackList = Set.of("(official", "(video", "(audio", "[official", "(lyric", "[unofficial", "- official", " official video");
+        var titles = items.stream()
+                .map(youtubePlaylistItem -> youtubePlaylistItem.getSnippet().getTitle())
+                .map(String::toLowerCase)
+                .map(title -> {
+                    int index = Math.max(-1, Collections.max(blackList.stream().map(title::indexOf).toList()));
+                    return title.substring(0, index == -1 ? title.length() : index )
+                            .replace("'", "")
+                            .replace("\"", "")
+                            .replace("video", "")
+                            .replaceAll("\\(.*?\\)", "");
+                })
+                .map(title -> title.split("[\\-|\\—]"))
+                .map(title -> {
+                    logger.info("PROCESSING {}, SIZE: {}", String.join(" ", title), title.length);
+                    if (title.length == 2) {
+                        return handleSongsWithArtistData(title);
+                    }
+                    return handleSongsWithNoArtistData(title);
+                })
+                .collect(Collectors.groupingBy(
+                    p -> p.getValue0().strip(),
+                    Collectors.mapping(p -> p.getValue1().strip(), Collectors.toSet())
+                ));
+
+        return titles;
+    }
+
+    private Pair<String, String> handleSongsWithNoArtistData(String[] songData) {
+        //return List.of(songData[0], songData[1].split("ft")[0]);
+        return new Pair<>("", songData[0]);
+    }
+
+    private Pair<String, String> handleSongsWithArtistData(String[] songData) {
+        return new Pair<>(songData[0], songData[1].split("ft")[0].split("feat")[0]);
+    }
+
     private String getArtistNameIfInCache(String artistName) {
         return Optional.ofNullable(Constants.artistsMapping.get(artistName))
                 .orElse(artistName);
     }
-
-
 }

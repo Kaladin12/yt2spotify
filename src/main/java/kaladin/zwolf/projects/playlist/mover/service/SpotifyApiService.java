@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import kaladin.zwolf.projects.playlist.mover.adapters.out.SpotifyApiAdapter;
 import kaladin.zwolf.projects.playlist.mover.domain.spotify.PlaylistCreationRequest;
 import kaladin.zwolf.projects.playlist.mover.domain.spotify.SongSearchResponse;
+import kaladin.zwolf.projects.playlist.mover.service.util.PlaylistUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,23 +22,42 @@ public class SpotifyApiService {
         this.spotifySongAdapter = spotifySongAdapter;
     }
 
-    public List<String> idk(Map<String, Set<String>> data) {
+    public List<String> searchTracks(Map<String, Set<String>> data) {
         List<String> ids = new ArrayList<>();
         data.forEach((artist, songs) -> {
             songs.forEach(song -> {
+                SongSearchResponse id = null;
                 try {
-                    var id = searchSongByArtistAndName(artist, song);
-                    if (id.getTracks().getItems().isEmpty()) {
-                        throw new Exception("NOT FOUND FOR song "+song+" artist "+artist);
+                    id = performCall(id, artist, song);
+                    if (id == null) {
+                        logger.error("retrying inverting the values {}:{}", song, artist);
+                        id = performCall(id, song, artist);
+                        if (id == null) {
+                            throw new RuntimeException("NOT FOUND FOR song "+song+" artist "+artist);
+                        }
                     }
                     ids.add(id.getTracks().getItems().getFirst().getId());
                 } catch (Exception e) {
                     logger.error("ERROR: {}", e.getMessage());
                 }
-
             });
         });
         return ids.stream().map(id -> "spotify:track:"+id).toList();
+    }
+
+    private SongSearchResponse performCall(SongSearchResponse id, String artist, String song) throws URISyntaxException {
+        if (artist == null || artist.isEmpty()) {
+            id = searchSongByName(song);
+        } else {
+            id = searchSongByArtistAndName(artist, song);
+        }
+
+        if (id.getTracks().getItems().isEmpty()) {
+            logger.warn("NOT FOUND FOR song: {} and artist {}", song, artist);
+            return null;
+        }
+
+        return id;
     }
 
     public SongSearchResponse searchSongByArtistAndName(String artist, String track) throws URISyntaxException {
@@ -46,18 +66,18 @@ public class SpotifyApiService {
                 .getBody();
     }
 
+    public SongSearchResponse searchSongByName(String track) throws URISyntaxException {
+        return spotifySongAdapter
+                .searchSong("track:\"" + track + "\"", 1)
+                .getBody();
+    }
+
     public String createNewPlaylist(String token, PlaylistCreationRequest body) throws JsonProcessingException {
         return spotifySongAdapter.generateNewPlaylist(token, body.getBaseRequest()).getBody().getId();
     }
 
     public String addItemsToPlaylist(String token, String playlistId, PlaylistCreationRequest requestBody) throws JsonProcessingException {
-        List<List<String>> chunks = new ArrayList<>();
-        int listSize = requestBody.getSongIds().size();
-
-        for (int i = 0; i < listSize; i += 100) {
-            chunks.add(new ArrayList<>(requestBody.getSongIds().subList(i, Math.min(i + 100, listSize))));
-        }
-
+        List<List<String>> chunks = PlaylistUtil.splitInChunks(requestBody.getSongIds(), 100);
         chunks.forEach(chunk -> {
             try {
                 spotifySongAdapter.addItemsToPlaylist(token, playlistId, chunk);
