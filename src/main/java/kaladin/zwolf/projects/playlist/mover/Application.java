@@ -2,6 +2,7 @@ package kaladin.zwolf.projects.playlist.mover;
 
 import kaladin.zwolf.projects.playlist.mover.domain.Constants;
 import kaladin.zwolf.projects.playlist.mover.ports.out.ArtistJdbcRepository;
+import kaladin.zwolf.projects.playlist.mover.ports.out.SongJdbcRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -15,14 +16,22 @@ public class Application implements CommandLineRunner {
 	}
 
 	@Autowired
-	private ArtistJdbcRepository repository;
+	private ArtistJdbcRepository artistJdbcRepository;
+
+	@Autowired
+	private SongJdbcRepository songRepository;
 
 	@Override
 	public void run(String... args) throws Exception {
-		var e = repository.findAll();
-		e.forEach(artist -> Constants.artistsMapping
-				.put(artist.getOriginal_name(), artist.getOverwritten_name())
+		 artistJdbcRepository.findAll().forEach(artist ->
+				 Constants.artistsMapping
+						 .put(artist.getOriginal_name(), artist.getOverwritten_name())
+		);
+		songRepository.findAll().forEach(song ->
+			Constants.songsMapping
+					.put(song.getOriginal_name(), song.getOverwritten_name())
 		);
 		System.out.println(Constants.artistsMapping);
+		System.out.println(Constants.songsMapping);
 	}
 }

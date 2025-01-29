@@ -2,26 +2,17 @@ package kaladin.zwolf.projects.playlist.mover.adapters.in;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import kaladin.zwolf.projects.playlist.mover.domain.spotify.PlaylistCreationRequest;
-import kaladin.zwolf.projects.playlist.mover.ports.out.PlaylistAggregationUseCase;
 import kaladin.zwolf.projects.playlist.mover.service.SpotifyApiService;
 import kaladin.zwolf.projects.playlist.mover.service.SpotifyTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1")
 @CrossOrigin("*")
-public class RequestController {
-    private Logger logger = LoggerFactory.getLogger(RequestController.class);
-
-    private PlaylistAggregationUseCase playlistAggregationService;
+public class SpotifyController {
+    private Logger logger = LoggerFactory.getLogger(SpotifyController.class);
 
     private SpotifyTokenService spotifyTokenService;
 
@@ -29,24 +20,10 @@ public class RequestController {
 
     private String token;
 
-    public RequestController(@Qualifier("youtube-service") PlaylistAggregationUseCase playlistAggregationService,
-                             SpotifyTokenService spotifyTokenService,
+    public SpotifyController(SpotifyTokenService spotifyTokenService,
                              SpotifyApiService spotifyApiService) {
-        this.playlistAggregationService = playlistAggregationService;
         this.spotifyTokenService = spotifyTokenService;
         this.spotifyApiService = spotifyApiService;
-    }
-
-    @GetMapping("/playlist/{id}")
-    @ResponseBody
-    public List<String> getPlaylist(@PathVariable String id) {
-        try {
-            Map<String, Set<String>> size =  playlistAggregationService.getPaginatedPlaylistData(id);
-            return spotifyApiService.searchTracks(size);
-        } catch (Exception e) {
-            logger.error("Exception while fetching Youtube API: {}", e.getMessage());
-        }
-        return new ArrayList<>();
     }
 
     @GetMapping("/callback")
@@ -58,7 +35,7 @@ public class RequestController {
         logger.info("scopes: {}", e.getScope());
     }
 
-    @PostMapping(value = "/playlist", consumes = "application/json")
+    @PostMapping(value = "/sfy/playlist", consumes = "application/json")
     public String createPlaylist(@RequestBody PlaylistCreationRequest body) throws JsonProcessingException {
         var id = spotifyApiService.createNewPlaylist(token, body);
         var res = spotifyApiService.addItemsToPlaylist(token, id, body);

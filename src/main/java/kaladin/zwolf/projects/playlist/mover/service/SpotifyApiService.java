@@ -89,4 +89,8 @@ public class SpotifyApiService {
         return "OK";
     }
 
+    private void idk(List<Long> e) {
+        Long s = e.stream().reduce(0L, Long::sum);
+    }
+
 }

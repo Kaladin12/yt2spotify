@@ -51,26 +51,18 @@ public class YoutubePlaylistAggregationService implements PlaylistAggregationUse
             String artistName = getArtistNameIfInCache(artist);
             map.putIfAbsent(artistName, new HashSet<>());
             title.forEach(t ->
-                    map.get(artistName).add(t)
+                    map.get(artistName).add(getSongNameIfInCache(t))
             );
 
         });
     }
 
     private Map<String, Set<String>> removeTrailingData(List<YoutubePlaylistItem> items) {
-        Set<String> blackList = Set.of("(official", "(video", "(audio", "[official", "(lyric", "[unofficial", "- official", " official video");
-        var titles = items.stream()
+        return items.stream()
                 .map(youtubePlaylistItem -> youtubePlaylistItem.getSnippet().getTitle())
                 .map(String::toLowerCase)
-                .map(title -> {
-                    int index = Math.max(-1, Collections.max(blackList.stream().map(title::indexOf).toList()));
-                    return title.substring(0, index == -1 ? title.length() : index )
-                            .replace("'", "")
-                            .replace("\"", "")
-                            .replace("video", "")
-                            .replaceAll("\\(.*?\\)", "");
-                })
-                .map(title -> title.split("[\\-|\\—]"))
+                .map(this::filterTitle)
+                .map(title -> title.split("[\\-|\\—|\\–]"))
                 .map(title -> {
                     logger.info("PROCESSING {}, SIZE: {}", String.join(" ", title), title.length);
                     if (title.length == 2) {
@@ -82,8 +74,17 @@ public class YoutubePlaylistAggregationService implements PlaylistAggregationUse
                     p -> p.getValue0().strip(),
                     Collectors.mapping(p -> p.getValue1().strip(), Collectors.toSet())
                 ));
+    }
 
-        return titles;
+    private String filterTitle(String title) {
+        Set<String> blackList = Set.of("(official", "(video", "(audio", "[official", "(lyric", "[unofficial", "- official", " official video");
+
+        int index = Math.max(-1, Collections.max(blackList.stream().map(title::indexOf).toList()));
+        return title.substring(0, index == -1 ? title.length() : index )
+                .replace("'", "")
+                .replace("\"", "")
+                .replace("video", "")
+                .replaceAll("\\(.*?\\)", "");
     }
 
     private Pair<String, String> handleSongsWithNoArtistData(String[] songData) {
@@ -96,7 +97,12 @@ public class YoutubePlaylistAggregationService implements PlaylistAggregationUse
     }
 
     private String getArtistNameIfInCache(String artistName) {
-        return Optional.ofNullable(Constants.artistsMapping.get(artistName))
-                .orElse(artistName);
+        return Optional.ofNullable(Constants.artistsMapping.get(artistName.strip()))
+                .orElse(artistName.strip());
+    }
+
+    private String getSongNameIfInCache(String songName) {
+        return Optional.ofNullable(Constants.songsMapping.get(songName.strip()))
+                .orElse(songName.strip());
     }
 }

@@ -7,4 +7,5 @@ public class Constants {
     private Constants() {}
 
     public static final Map<String, String> artistsMapping = new HashMap<>();
+    public static final Map<String, String> songsMapping = new HashMap<>();
 }
